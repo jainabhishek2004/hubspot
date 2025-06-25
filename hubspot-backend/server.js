@@ -22,7 +22,10 @@ app.post('/api/exchange-code', async (req, res) => {
     return res.status(400).json({ error: 'Code is required' });
   }
 
+  let access_token, refresh_token;
+
   try {
+    // Step 1: Exchange code for access token
     const params = new URLSearchParams();
     params.append('grant_type', 'authorization_code');
     params.append('client_id', process.env.CLIENT_ID);
@@ -31,21 +34,41 @@ app.post('/api/exchange-code', async (req, res) => {
     params.append('code', code);
 
     const tokenResponse = await axios.post('https://api.hubapi.com/oauth/v1/token', params);
-    console.log('🔐 Token Response:', tokenResponse);
-    console.log('🔑 Token Response:', tokenResponse.data);
 
-    const { access_token, refresh_token } = tokenResponse.data;
-    console.log('✅ HubSpot Access Token:', access_token);
-    console.log('🔁 Refresh Token:', refresh_token);
-    const token = access_token;
-    
+    access_token = tokenResponse.data.access_token;
+    refresh_token = tokenResponse.data.refresh_token;
 
-    res.json({ message: 'Token exchange successful', token: access_token });
+    console.log('✅ Access Token hehe :', access_token);
+    console.log('🔁 Refresh Token hehe :', refresh_token);
+
   } catch (error) {
-    console.error('❌ HubSpot token exchange failed:', error.response?.data || error.message);
-    res.status(500).json({ error: 'Token exchange failed' });
+    console.error('❌ Token exchange failed:', error.response?.data || error.message);
+    return res.status(500).json({ error: 'Token exchange failed' });
+  }
+
+  try {
+    // Step 2: Use access token to get portal ID
+    const response = await axios.get('https://api.hubapi.com/integrations/v1/me', {
+      headers: {
+        Authorization: `Bearer ${access_token}`
+      }
+    });
+
+    const { portalId } = response.data;
+
+    return res.status(200).json({
+      message: 'Token and portalId fetched successfully',
+      access_token,
+      refresh_token,
+      portalId
+    });
+
+  } catch (error) {
+    console.error('❌ Error fetching portal ID:', error.response?.data || error.message);
+    return res.status(500).json({ error: 'Failed to fetch portal ID' });
   }
 });
+
 
 // ✅ 2. IVR token verification
 app.post('/api/verify-token', async (req, res) => {
@@ -79,28 +102,28 @@ app.post('/api/verify-token', async (req, res) => {
     res.status(500).json({ error: 'Token verification failed' });
   }
 });
-app.get('/api/get-portal-id', async (req, res) => {
-  const accessToken = process.env.ACCESS_TOKEN;
+// app.get('/api/get-portal-id', async (req, res) => {
+//   const accessToken = process.env.ACCESS_TOKEN;
 
-  if (!accessToken) {
-    return res.status(400).json({ error: 'Missing ACCESS_TOKEN in .env' });
-  }
+//   if (!accessToken) {
+//     return res.status(400).json({ error: 'Missing ACCESS_TOKEN in .env' });
+//   }
 
-  try {
-    const response = await axios.get('https://api.hubapi.com/integrations/v1/me', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`
-      }
-    });
+//   try {
+//     const response = await axios.get('https://api.hubapi.com/integrations/v1/me', {
+//       headers: {
+//         Authorization: `Bearer ${accessToken}`
+//       }
+//     });
 
-    const { portalId } = response.data;
+//     const { portalId } = response.data;
 
-    return res.status(200).json({ portalId });
-  } catch (error) {
-    console.error('❌ Error fetching portal ID:', error.response?.data || error.message);
-    return res.status(500).json({ error: 'Failed to fetch portal ID' });
-  }
-});
+//     return res.status(200).json({ portalId });
+//   } catch (error) {
+//     console.error('❌ Error fetching portal ID:', error.response?.data || error.message);
+//     return res.status(500).json({ error: 'Failed to fetch portal ID' });
+//   }
+// });
 
 // 🚀 Start server
 app.listen(PORT, () => {

@@ -12,7 +12,7 @@ function App() {
   const code = urlParams.get('code');
 
   if (status === 0) {
-    alert('Please wait while we exchange your code for an access token...');
+    
     return;
   }
 
@@ -20,24 +20,27 @@ function App() {
     // Step 1: Exchange code for access token
     axios.post('http://localhost:3001/api/exchange-code', { code })
       .then(res => {
-        console.log('✅ Access Token:', res.data.token);
-        localStorage.setItem('hubspot_token', res.data.token);
+        console.log('🔑 Access Token:', res.data.access_token);
+        console.log (res.data)
+        localStorage.setItem("data",res.data)
+        localStorage.setItem('hubspot_token', res.data.access_token);
         alert('✅ Token received');
+        //  window.location.href = `https://app.hubspot.com/connected-apps/${res.data.portalId}/installed`;
 
         // Step 2: Now call the portal ID endpoint
-        axios.get('http://localhost:3001/api/get-portal-id')
-          .then(res2 => {
-            const portalId = res2.data.portalId;
-            console.log('🏢 Portal ID:', portalId);
-            alert(`Portal ID: ${portalId}`);
+        // axios.get('http://localhost:3001/api/get-portal-id')
+        //   .then(res2 => {
+        //     const portalId = res2.data.portalId;
+        //     console.log('🏢 Portal ID:', portalId);
+        //     alert(`Portal ID: ${portalId}`);
 
          
-            window.location.href = `https://app.hubspot.com/connected-apps/${portalId}/installed`;
-          })
-          .catch(err => {
-            console.error('❌ Error fetching portal ID:', err);
-            alert('Error getting portal ID');
-          });
+        //     window.location.href = `https://app.hubspot.com/connected-apps/${portalId}/installed`;
+        //   })
+        //   .catch(err => {
+        //     console.error('❌ Error fetching portal ID:', err);
+        //     alert('Error getting portal ID');
+        //   });
       })
       .catch(err => {
         console.error('❌ Token exchange failed:', err);
