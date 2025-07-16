@@ -9,9 +9,66 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 // 🟢 Health check
-app.get('/', (req, res) => {
-  res.send('Backend is running!');
-});
+app.get('/person-action-modal', async (req, res) => {
+  try {
+    // Extract query parameters sent by Pipedrive
+    const { 
+      selectedIds, 
+      resource, 
+      view, 
+      userId, 
+      companyId, 
+      token 
+    } = req.query;
+
+    // Verify JWT token
+    
+    
+    // selectedIds contains the person ID(s) selected by user
+    const personIds = selectedIds ? selectedIds.split(',') : [];
+    console.log('Selected Person IDs:', personIds);
+    if (personIds.length === 0) {
+      return res.status(400).json({
+        error: { message: "No person selected" }
+      });
+    }
+
+
+    
+    
+    // Return schema with person data populated
+    res.json({
+      data: {
+        blocks: {
+          person_name: {
+            value: `**Name:** ${personData.name || 'N/A'}`,
+          },
+          person_email: {
+            value: `**Email:** ${personData.email?.[0]?.value || 'N/A'}`,
+          },
+          person_phone: {
+            value: `**Phone:** ${personData.phone?.[0]?.value || 'N/A'}`,
+          },
+          person_organization: {
+            value: `**Organization:** ${personData.org_name || 'N/A'}`,
+          },
+          // Set default action if needed
+          action_selection: {
+            value: null // or set a default
+          }
+        },
+        actions: {}
+      }
+    });
+
+  } catch (error) {
+    console.error('Error handling modal request:', error);
+    res.status(500).json({
+      error: { message: "Failed to load person data" }
+    });
+  }
+})
+
 app.post('/api/fetch-user', async (req, res) => {
   const { access_token } = req.body;
 
@@ -55,14 +112,22 @@ app.get('/fetch-logs', async (req, res) => {
     const length = data.length;
     console.log(typeof data); 
     let finalressponse = [];
+    let calllogloopstart = data.length - 1
+    for(let i = length -1 ; i>=0; i--){
+      if(data[i].recordid ==="2247037"){
+        calllogloopstart = i;
+        break;
 
-    
-    
+      }
+    }
+  
+    for (let i = calllogloopstart; i >0; i--) {
 
-    for (let i = 0; i < data.length; i++) {
-      await delay(3000);
+      await delay(5000);
+      
 
       console.log(`Processing log ${i + 1}/${length}:`, data[i].client_no);
+      
      
 
         const response = await axios.get(`https://api.pipedrive.com/v1/persons/search?term=${data[i].client_no}&fields=phone`, {
@@ -173,7 +238,10 @@ app.get('/fetch-logs', async (req, res) => {
     res.status(200).json({
       message: 'Call logs processed and posted to Pipedrive',
       count: 5,
-      data: finalressponse
+      data: finalressponse,
+      recordid: data[0].recordid
+    
+
     });
 
   } catch (error) {
