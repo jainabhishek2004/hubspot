@@ -6,7 +6,7 @@ function App() {
   const [status, setStatus] = useState(0);
   const [addLeads, setAddLeads] = useState(false); 
   const[companyid, setCompanyId] = useState(''); 
-
+//// const [companyid, setCompanyId] = useState('');
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const code = urlParams.get('code');
