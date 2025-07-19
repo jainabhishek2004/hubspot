@@ -17,13 +17,13 @@ function App() {
 
     if (code) {
       // Step 1: Exchange code for access token
-      axios.post('http://localhost:3001/api/exchange-code', { code })
+      axios.post('https://hubspot-ferd.onrender.com/api/exchange-code', { code })
         .then((res) => {
           console.log('✅ Tokens received:', res.data);
           const access_token = res.data.access_token;
 
         // Step 2: Fetch user info to get company_id
-        axios.post('http://localhost:3001/api/fetch-user', { access_token })
+        axios.post('https://hubspot-ferd.onrender.com/api/fetch-user', { access_token })
           .then((userRes) => {
             const companyId = userRes.data.company_id;
             console.log("🏢 Company ID:", companyId);
@@ -46,7 +46,7 @@ function App() {
   const handleSubmit = async () => {
     try {
       const response = await axios.post(
-        'http://localhost:3001/api/verify-token',
+        'https://hubspot-ferd.onrender.com/api/verify-token',
         { token } // include addLeads flag in request body
       );
 
