@@ -1,7 +1,16 @@
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-require('dotenv').config(); // Load .env variables
+ import express from 'express';
+import cors from 'cors';
+import axios from 'axios';
+import path from 'path';
+import dotenv from 'dotenv';
+
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+dotenv.config();
+
 
 const app = express();
 const PORT = 3001;
@@ -9,55 +18,65 @@ const PORT = 3001;
 app.use(cors());
 app.use(express.json());
 // 🟢 Health check
+
+app.get('/', (req, res) => {
+  res.status(200).send('OK');
+});
 app.get('/person-action-modal', async (req, res) => {
   try {
-    // Extract query parameters sent by Pipedrive
-    const { 
-      selectedIds, 
-      resource, 
-      view, 
-      userId, 
-      companyId, 
-      token 
-    } = req.query;
-
-    // Verify JWT token
-    
-    
-    // selectedIds contains the person ID(s) selected by user
+    const { selectedIds } = req.query;
     const personIds = selectedIds ? selectedIds.split(',') : [];
+
     console.log('Selected Person IDs:', personIds);
+
     if (personIds.length === 0) {
       return res.status(400).json({
         error: { message: "No person selected" }
       });
     }
 
+    const itemsdata = [];
 
-    
-    
-    // Return schema with person data populated
+    // ✅ Async function to fetch dialers and return list
+    async function fetchDialers() {
+      const response = await fetch('https://api.ivrsolutions.in/api/get_dialers_list', {
+        method: 'GET',
+        headers: {
+          'Authorization': 'Bearer 9d9e342f9478836c02171cbcf68d0c7b',
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const dialers = await response.json();
+      if (!dialers.data) {
+        throw new Error("No dialer data found");
+      }
+
+      dialers.data.forEach(item => {
+        itemsdata.push({
+          label: `${item.name} (${item.status})`,
+          value: item.id
+        });
+      });
+    }
+
+    // ⏳ Wait for dialer fetch to finish before responding
+    await fetchDialers();
+
+    // ✅ Now return the modal structure
     res.json({
       data: {
         blocks: {
-          person_name: {
-            value: `**Name:** ${personData.name || 'N/A'}`,
-          },
-          person_email: {
-            value: `**Email:** ${personData.email?.[0]?.value || 'N/A'}`,
-          },
-          person_phone: {
-            value: `**Phone:** ${personData.phone?.[0]?.value || 'N/A'}`,
-          },
-          person_organization: {
-            value: `**Organization:** ${personData.org_name || 'N/A'}`,
-          },
-          // Set default action if needed
           action_selection: {
-            value: null // or set a default
-          }
+            items: itemsdata
+          },
+          project_selection: {},
+          followup_date: {}
         },
-        actions: {}
+        actions: {
+          cancel_action: {},
+          submit_action: {}
+        }
       }
     });
 
@@ -67,7 +86,122 @@ app.get('/person-action-modal', async (req, res) => {
       error: { message: "Failed to load person data" }
     });
   }
-})
+});
+
+const extractPhoneNumbers = (person) => {
+  return (person.phone || [])
+    .map(p => p.value)
+    .filter(Boolean);
+};
+
+app.post('/person-action-modal', async (req, res) => {
+  try {
+    console.log("🟢 Received from modal:", req.body);
+    console.log("🟡 Query params:", req.query);
+
+    const {
+      action_selection: dialerId,
+      followup_date,
+      project_selection: timezone,
+      followup_time_text:time
+    } = req.body;
+
+console.log(time)
+
+    const {
+      selectedIds = '',
+      companyId,
+    } = req.query;
+
+    const personIds = selectedIds.split(',').map(id => id.trim());
+    console.log(personIds)
+    const domain = 'abhishek-sandbox3.pipedrive.com'; // Make dynamic if needed
+    
+    const phoneNumbers = [];
+
+    // 🔁 Fetch phone numbers for each person
+    for (const personId of personIds) {
+      const url = `https://${domain}/api/v1/persons/${personId}`;
+
+      try {
+        const { data: person } = await axios.get(url, {
+          headers: {
+            Authorization: `Bearer v1u:AQIBAHj-LzTNK2yuuuaLqifzhWb9crUNKTpk4FlQ9rjnXqp_6AH1xWIuX4UNV4pLjxXmWX9qAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMFHdktw7w7f0Pjg7rAgEQgDvdZiq5D_z3NrqUDbPJtST4-2TOMCW6wX9bysOeNz1dnXk2iat6N4tJCtsyTenFd4dHuS53Kg7r436P0Q:wE6QbqBFUxguWOXwGl5NfFP8En_LUu-meDBY-EAOKPpGnxQ5UqfIZm-sLOfcVUAKNElR6k0YSJrb9s5LPHsXmA3rzqii0JUtyW2SinbtTH-zdNiB3RggnqaXoiV18ZkZK4CBwmWEd5htpVBGVqcF6Q1ctIKTByIu-wGGlUDgP42ncBUdpGz59k0kvy6xnNSjenHiLL38cJURy2BtCbm2AU2hUHUtyJVmx1qLFi9PgZW1KvigeKo5TnEX2YGcgmDA0b_6WQ1YL2U2047MrvJh98F0ipyOXIhLqwMYEpsXTRaGseQqf7izRAIOMAKMkP68Ox-XNkA8MpUUICj55qJrbeWnYxo5zC_WU7YSO2AvLkfFBSN2HrwDo3m2EcfglHMVCKbjPJ4JiDqFU-Y1jXGVz8RN84gzsdkJtWaIlY8vM2gk_ete`
+          }
+        });
+
+        const personData = person?.data;
+        const phones = personData?.phone;
+
+        if (!Array.isArray(phones)) {
+          console.warn(`⚠️ No phone array for personId ${personId}`);
+          continue;
+        }
+
+        phones.forEach(entry => {
+          const num = entry?.value;
+          if (num) {
+            phoneNumbers.push({ phone_number: num });
+          }
+        });
+
+        console.log( phoneNumbers)
+
+      } catch (err) {
+        console.error(`❌ Failed to fetch personId ${personId}:`, err.response?.status, err.message);
+        continue; // Skip this person and continue the loop
+      }
+    }
+
+    if (!phoneNumbers.length) {
+      return res.status(400).json({
+        success: false,
+        message: "No phone numbers found."
+      });
+    }
+
+    // 📦 Dialer payload
+    const payload = {
+      dialerid: dialerId,
+      recordList: phoneNumbers
+    };
+
+    if (followup_date && timezone) {
+      payload.schedule_datetime = `${followup_date} ${time}:00`;
+      payload.timezone = timezone;
+    }
+
+    console.log("📤 Final Payload to be sent:", payload);
+
+    // 📤 Send to Dialer
+    const dialerResponse = await axios.post(
+      'https://api.ivrsolutions.in/v1/add_to_dialer',
+      payload,
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer 9d9e342f9478836c02171cbcf68d0c7b`
+        }
+      }
+    );
+
+    console.log("✅ Dialer response:", dialerResponse.data);
+
+    return res.json({
+      success: {
+        message: "Action received and processed."
+      }
+    });
+
+  } catch (error) {
+    console.error("❌ Fatal error in /person-action-modal:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to add to dialer.",
+      error: error.message
+    });
+  }
+});
 
 app.post('/api/fetch-user', async (req, res) => {
   const { access_token } = req.body;
@@ -97,8 +231,6 @@ app.post('/api/fetch-user', async (req, res) => {
   }
 });
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-
 
 app.get('/fetch-logs', async (req, res) => {
   try {
@@ -250,11 +382,6 @@ app.get('/fetch-logs', async (req, res) => {
   }
 });
 
-
-
-
-
-
 app.post('/api/verify-token', async (req, res) => {
   const { token } = req.body;
 
@@ -336,6 +463,11 @@ app.post('/api/exchange-code', async (req, res) => {
     console.error('❌ Token exchange error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Token exchange failed' });
   }
+});
+
+app.use(express.static(path.join(__dirname, '../hubspot/dist')));
+app.get("/{*any}", (req, res) => {
+  res.sendFile(path.join(__dirname, '../hubspot/dist/index.html'));
 });
 
 app.listen(PORT, () => {
