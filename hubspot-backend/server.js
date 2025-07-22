@@ -104,7 +104,6 @@ const extractPhoneNumbers = (person) => {
     .map(p => p.value)
     .filter(Boolean);
 };
-
 app.post('/person-action-modal', async (req, res) => {
   try {
     console.log("🟢 Received from modal:", req.body);
@@ -114,53 +113,90 @@ app.post('/person-action-modal', async (req, res) => {
       action_selection: dialerId,
       followup_date,
       project_selection: timezone,
-      followup_time_text:time
+      followup_time_text: time
     } = req.body;
-
-console.log(time)
 
     const {
       selectedIds = '',
       companyId,
+      userId,
+      
+      filter = '{}'
     } = req.query;
 
     const personIds = selectedIds.split(',').map(id => id.trim());
-    console.log(personIds)
+    console.log(personIds);
+
     const domain = 'abhishek-sandbox3.pipedrive.com'; // Make dynamic if needed
-    
     const phoneNumbers = [];
 
-    // 🔁 Fetch phone numbers for each person
-    for (const personId of personIds) {
-      const url = `https://${domain}/api/v1/persons/${personId}`;
+    // 🔄 NEW: Parse filter and check if 'everyone' is true
+    const filterObj = JSON.parse(filter);
+    const isEveryone = filterObj?.everyone === true;
 
+    // 🔁 Fetch users either by selectedIds or all if 'everyone' is true
+    if (selectedIds === '' && isEveryone) {
+      console.log("🌐 Fetching all users for userId:", userId);
+      const url = `https://${domain}/api/v1/persons?limit=100&start=0&user_id=${userId}`;
       try {
-        const { data: person } = await axios.get(url, {
+        const { data } = await axios.get(url, {
           headers: {
-            Authorization: `Bearer v1u:AQIBAHj-LzTNK2yuuuaLqifzhWb9crUNKTpk4FlQ9rjnXqp_6AH1xWIuX4UNV4pLjxXmWX9qAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMFHdktw7w7f0Pjg7rAgEQgDvdZiq5D_z3NrqUDbPJtST4-2TOMCW6wX9bysOeNz1dnXk2iat6N4tJCtsyTenFd4dHuS53Kg7r436P0Q:wE6QbqBFUxguWOXwGl5NfFP8En_LUu-meDBY-EAOKPpGnxQ5UqfIZm-sLOfcVUAKNElR6k0YSJrb9s5LPHsXmA3rzqii0JUtyW2SinbtTH-zdNiB3RggnqaXoiV18ZkZK4CBwmWEd5htpVBGVqcF6Q1ctIKTByIu-wGGlUDgP42ncBUdpGz59k0kvy6xnNSjenHiLL38cJURy2BtCbm2AU2hUHUtyJVmx1qLFi9PgZW1KvigeKo5TnEX2YGcgmDA0b_6WQ1YL2U2047MrvJh98F0ipyOXIhLqwMYEpsXTRaGseQqf7izRAIOMAKMkP68Ox-XNkA8MpUUICj55qJrbeWnYxo5zC_WU7YSO2AvLkfFBSN2HrwDo3m2EcfglHMVCKbjPJ4JiDqFU-Y1jXGVz8RN84gzsdkJtWaIlY8vM2gk_ete`
+            Authorization: `Bearer v1u:AQIBAHj-LzTNK2yuuuaLqifzhWb9crUNKTpk4FlQ9rjnXqp_6AH1xWIuX4UNV4pLjxXmWX9qAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMFHdktw7w7f0Pjg7rAgEQgDvdZiq5D_z3NrqUDbPJtST4-2TOMCW6wX9bysOeNz1dnXk2iat6N4tJCtsyTenFd4dHuS53Kg7r436P0Q:xdK38I-JVBjtQXvbX2hk1dRp0Qf4j2sn9neXrq0aLuc7_bIpZACx7BcsSbZko9zEA_wYFSevczfzf581ovmdvqFRXkHleX51rR7PFGKAP-N7Jf7bm24BIAmpRHGxvaa7uhwyQ_gGymagyB7oRGzuxqKaLkFboGxHal2gCJQcy5EH2TjhblJj3bjz74ub-oiCuSn3IY8BgI9vs1OIzafSvoeHqJkWSRDLQ22mw8OZuZc4xf4w4fYRg1IiOXnhAFEZTTPcsJtwU0ypH5RTIMgIFikmseHN4hD15efN98ZKH6vULeY01Uq9C_bpssOOixe6EaV0iOHc2fKkBlxEF6CJljrXTVogkbEA18VQSRa7ZdCM-Xoir5WT2NuqB9qEo8Ncmde41SISQquDbmrGp2niTMWpQE7jDy2ClOBNJ_Q36Fnsyrj- `
           }
         });
 
-        const personData = person?.data;
-        const phones = personData?.phone;
+        const allPersons = data?.data || [];
 
-        if (!Array.isArray(phones)) {
-          console.warn(`⚠️ No phone array for personId ${personId}`);
-          continue;
-        }
-
-        phones.forEach(entry => {
-          const num = entry?.value;
-          if (num) {
-            phoneNumbers.push({ phone_number: num });
+        allPersons.forEach(person => {
+          const phones = person?.phone;
+          if (Array.isArray(phones)) {
+            phones.forEach(entry => {
+              const num = entry?.value;
+              if (num) {
+                phoneNumbers.push({ phone_number: num });
+              }
+            });
           }
         });
-
-        console.log( phoneNumbers)
 
       } catch (err) {
-        console.error(`❌ Failed to fetch personId ${personId}:`, err.response?.status, err.message);
-        continue; // Skip this person and continue the loop
+        console.error("❌ Failed to fetch all persons:", err.message);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to fetch all persons for 'everyone'."
+        });
+      }
+
+    } else {
+      // 🔁 OLD: Fetch phone numbers for each selected person
+      for (const personId of personIds) {
+        const url = `https://${domain}/api/v1/persons/${personId}`;
+        try {
+          const { data: person } = await axios.get(url, {
+            headers: {
+              Authorization: `Bearer v1u:AQIBAHj-LzTNK2yuuuaLqifzhWb9crUNKTpk4FlQ9rjnXqp_6AH1xWIuX4UNV4pLjxXmWX9qAAAAfjB8BgkqhkiG9w0BBwagbzBtAgEAMGgGCSqGSIb3DQEHATAeBglghkgBZQMEAS4wEQQMFHdktw7w7f0Pjg7rAgEQgDvdZiq5D_z3NrqUDbPJtST4-2TOMCW6wX9bysOeNz1dnXk2iat6N4tJCtsyTenFd4dHuS53Kg7r436P0Q:xdK38I-JVBjtQXvbX2hk1dRp0Qf4j2sn9neXrq0aLuc7_bIpZACx7BcsSbZko9zEA_wYFSevczfzf581ovmdvqFRXkHleX51rR7PFGKAP-N7Jf7bm24BIAmpRHGxvaa7uhwyQ_gGymagyB7oRGzuxqKaLkFboGxHal2gCJQcy5EH2TjhblJj3bjz74ub-oiCuSn3IY8BgI9vs1OIzafSvoeHqJkWSRDLQ22mw8OZuZc4xf4w4fYRg1IiOXnhAFEZTTPcsJtwU0ypH5RTIMgIFikmseHN4hD15efN98ZKH6vULeY01Uq9C_bpssOOixe6EaV0iOHc2fKkBlxEF6CJljrXTVogkbEA18VQSRa7ZdCM-Xoir5WT2NuqB9qEo8Ncmde41SISQquDbmrGp2niTMWpQE7jDy2ClOBNJ_Q36Fnsyrj- `
+            }
+          });
+
+          const personData = person?.data;
+          const phones = personData?.phone;
+
+          if (!Array.isArray(phones)) {
+            console.warn(`⚠️ No phone array for personId ${personId}`);
+            continue;
+          }
+
+          phones.forEach(entry => {
+            const num = entry?.value;
+            if (num) {
+              phoneNumbers.push({ phone_number: num });
+            }
+          });
+
+        } catch (err) {
+          console.error(`❌ Failed to fetch personId ${personId}:`, err.response?.status, err.message);
+          continue;
+        }
       }
     }
 
@@ -213,6 +249,8 @@ console.log(time)
     });
   }
 });
+
+
 
 app.post('/api/fetch-user', async (req, res) => {
   const { access_token } = req.body;
