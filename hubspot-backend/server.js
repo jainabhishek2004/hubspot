@@ -28,13 +28,6 @@ app.get('/person-action-modal', async (req, res) => {
     const personIds = selectedIds ? selectedIds.split(',') : [];
 
     console.log('Selected Person IDs:', personIds);
-
-    if (personIds.length === 0) {
-      return res.status(400).json({
-        error: { message: "No person selected" }
-      });
-    }
-
     const itemsdata = [];
 
     // ✅ Async function to fetch dialers and return list
@@ -59,9 +52,27 @@ app.get('/person-action-modal', async (req, res) => {
         });
       });
     }
+   await fetchDialers();
 
-    // ⏳ Wait for dialer fetch to finish before responding
-    await fetchDialers();
+    if (personIds.length === 0) {
+      return  res.json({
+      data: {
+        blocks: {
+          action_selection: {
+            items: itemsdata
+          },
+          project_selection: {},
+          followup_date: {}
+        },
+        actions: {
+          cancel_action: {},
+          submit_action: {}
+        }
+      }
+    });
+    }
+
+   
 
     // ✅ Now return the modal structure
     res.json({
