@@ -16,14 +16,14 @@ function App() {
     }
 
     if (code) {
-      // Step 1: Exchange code for access token
-      axios.post('https://hubspot-ferd.onrender.com/api/exchange-code', { code })
+      let ivrtoken = localStorage.getItem('ivr_token');
+      axios.post('http://localhost:3001/api/exchange-code', { code,ivrtoken })
         .then((res) => {
           console.log('✅ Tokens received:', res.data);
           const access_token = res.data.access_token;
 
         // Step 2: Fetch user info to get company_id
-        axios.post('https://hubspot-ferd.onrender.com/api/fetch-user', { access_token })
+        axios.post('http://localhost:3001/api/fetch-user', { access_token })
           .then((userRes) => {
             const companyId = userRes.data.company_id;
             console.log("🏢 Company ID:", companyId);
@@ -46,7 +46,7 @@ function App() {
   const handleSubmit = async () => {
     try {
       const response = await axios.post(
-        'https://hubspot-ferd.onrender.com/api/verify-token',
+        'http://localhost:3001/api/verify-token',
         { token } // include addLeads flag in request body
       );
 
@@ -112,7 +112,7 @@ function App() {
       <button
         onClick={handleSubmit}
         style={{
-          backgroundColor: "#013D4D",
+          backgroundColor: "#78d871ff",
           color: "#fff",
           padding: "0.75rem 1.5rem",
           fontSize: "1rem",
@@ -121,8 +121,8 @@ function App() {
           cursor: "pointer",
           transition: "background-color 0.3s ease"
         }}
-        onMouseOver={(e) => e.target.style.backgroundColor = "#02556e"}
-        onMouseOut={(e) => e.target.style.backgroundColor = "#013D4D"}
+        onMouseOver={(e) => e.target.style.backgroundColor = "#22ba00ff"}
+        onMouseOut={(e) => e.target.style.backgroundColor = "#0acf03ff"}
       >
         Verify IVR Token
       </button>

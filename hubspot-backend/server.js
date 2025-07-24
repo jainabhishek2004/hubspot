@@ -434,6 +434,9 @@ app.get('/api/persons', async (req,res)=>{
 // ✅ 3. Exchange authorization code for access and refresh tokens
 app.post('/api/exchange-code', async (req, res) => {
   const { code } = req.body;
+  const {ivrtoken} = req.body;
+  console.log ('🔍 Exchange Code:', code);
+  console.log('🔍 IVR Token:', ivrtoken);
 
   if (!code) {
     return res.status(400).json({ error: 'Authorization code is required' });
@@ -457,8 +460,47 @@ app.post('/api/exchange-code', async (req, res) => {
       }
     );
 
-    console.log('✅ Token response:', response.data);
+     const personresponse = await axios.get('https://api.pipedrive.com/v1/users/me', {
+    headers: {
+      'Authorization': `Bearer ${response.data.access_token}` 
+    }
+  });
+ 
+
+    
+   
+
+const payload = {
+  access_token: response.data.access_token,
+  refresh_token: response.data.refresh_token,
+  api_domain_url: response.data.api_domain,
+  ivr_token: ivrtoken,
+  record_id: null,
+  user_Id: personresponse.data.data.id,
+  company_id: personresponse.data.data.company_id,
+  new_lead: true,
+};
+
+console.log('✅ Payload:', payload);
+
+axios.post('https://api.ivrsolutions.in/pipedrive/add_new_account', payload, {
+  headers: {
+    Authorization: `Bearer ${ivrtoken}`,
+    
+  },
+})
+.then(res => {
+  console.log('✅ Success:', res.data);
+})
+.catch(err => {
+  console.error('❌ Error:', err.response ? err.response.data : err.message);
+});
+
+    
+    
+
     res.json(response.data); // contains access_token, refresh_token, etc.
+
   } catch (error) {
     console.error('❌ Token exchange error:', error.response?.data || error.message);
     res.status(500).json({ error: 'Token exchange failed' });
@@ -467,7 +509,9 @@ app.post('/api/exchange-code', async (req, res) => {
 
 app.use(express.static(path.join(__dirname, '../hubspot/dist')));
 app.get("/{*any}", (req, res) => {
+  
   res.sendFile(path.join(__dirname, '../hubspot/dist/index.html'));
+  
 });
 
 app.listen(PORT, () => {
